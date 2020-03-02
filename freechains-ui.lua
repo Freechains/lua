@@ -6,60 +6,41 @@ local json     = require 'json'
 -- TODO
 -- xhost +
 
-function CFG_chain (chain)
-    local t = CFG.chains[chain] or { peers={} }
-    CFG.chains[chain] = t
-    CFG_('save')
-    return t
-end
-
-function CFG_peers (chain)
-    local ps = {}
-    for p in pairs(CFG_chain(chain).peers) do
-        ps[#ps+1] = p
-    end
-    return ps
-end
-
---[[
-        local t = CFG_chain(chain).peers
-        t[peer] = true
-        CFG_('save')
-
-if string.sub(CMD,1,15) == 'freechains nick' then
-
-    local pub = string.match(CMD, ' ([^ ]*)$')
-    local z = EXE('zenity --entry --title="Add nickname for" '..pub..' --text="Nickname:"')
-    local nick = EXE(z)
-    if not nick then goto END end
-
-    CFG.friends[pub] = nick
-    CFG_('save')
-
-    EXE_FC('freechains chain join /'..pub..' '..pub)
-    EXE('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain-atom-/'..pub..'"')
-
-elseif string.sub(CMD,1,22) == 'freechains chain bcast' then
-
-    local chain = string.match(CMD, ' ([^ ]*)$')
-    local f = io.popen('zenity --progress --percentage=0 --title="Broadcast '..chain..'"', 'w')
-    local ps = CFG_peers(chain)
-    for i,p in ipairs(ps) do
-        f:write('# '..p..'\n')
-        --EXE('sleep 1')
-        EXE_FC('freechains chain send '..chain..' '..p)
-        f:write(math.floor(100*(i/#ps))..'\n')
-    end
-    f:close()
-
-]]
-
 local PATH_CFG   = os.getenv('HOME')..'/.config/freechains.json'
 local PATH_SHARE = os.getenv('HOME')..'/.local/share/freechains/'
 local PATH_DATA  = PATH_SHARE..'/data/'
 local PATH_CBS   = PATH_SHARE..'/callbacks.lua'
 os.execute('mkdir -p '..PATH_SHARE)
 pcall(dofile, PATH_CBS)
+
+-------------------------------------------------------------------------------
+
+local help = [=[
+freechains-ui 0.2
+
+Usage: freechains-ui [<options>] <command> <arguments>
+
+$ freechains-ui host create [<port>]    | nick password
+$ freechains-ui host drop
+$ freechains-ui host start
+$ freechains-ui host stop
+$ freechains-ui host nick add <pub>     | nick
+
+$ freechains-ui chain join <chain>      | path
+$ freechains-ui chain post <chain>      | payload
+$ freechains-ui chain peer add <chain>  | host
+$ freechains-ui chain bcast <chain>
+$ freechains-ui chain atom <chain>
+
+More Information:
+
+    http://www.freechains.org/
+
+    Please report bugs at <http://github.com/Freechains/freechains-ui>.
+]=]
+
+local parser = optparse(help)
+local arg, opts = parser:parse(_G.arg)
 
 -------------------------------------------------------------------------------
 
@@ -82,38 +63,29 @@ function CFG_ (cmd)
             f:close()
         end
     else
+        os.rename(PATH_CFG,PATH_CFG..'.bak')
         local f = assert(io.open(PATH_CFG,'w'))
         f:write(json.encode(CFG)..'\n')
         f:close()
     end
 end
 
+function CFG_chain (chain)
+    local t = CFG.chains[chain] or { peers={} }
+    CFG.chains[chain] = t
+    CFG_('save')
+    return t
+end
+
+function CFG_peers (chain)
+    local ps = {}
+    for p in pairs(CFG_chain(chain).peers) do
+        ps[#ps+1] = p
+    end
+    return ps
+end
+
 CFG_('load')
-
--------------------------------------------------------------------------------
-
-local help = [=[
-freechains-ui 0.2
-
-Usage: freechains-ui [<options>] <command> <arguments>
-
-$ freechains-ui host create [<port>]
-$ freechains-ui host drop
-$ freechains-ui host start
-$ freechains-ui host stop
-
-$ freechains-ui chain join <chain> ...
-$ freechains-ui chain atom <chain>
-
-More Information:
-
-    http://www.freechains.org/
-
-    Please report bugs at <http://github.com/Freechains/freechains-ui>.
-]=]
-
-local parser = optparse(help)
-local arg, opts = parser:parse(_G.arg)
 
 -------------------------------------------------------------------------------
 
@@ -178,6 +150,7 @@ if arg[1] == 'host' then
 
     if arg[2] == 'drop' then
         os.execute('rm -Rf '..PATH_CFG..' '..PATH_DATA)
+        os.exit(0)
     
     elseif arg[2] == 'create' then
 
@@ -201,18 +174,40 @@ if arg[1] == 'host' then
         local pub,pvt = string.match(ret, '^([^\n]*)\n(.*)$')
         CFG.keys = { pub=pub, pvt=pvt }
         CFG.nicks[pub] = nick
+        CFG.nicks[nick] = pub
         CFG_('save')
 
         EXE_FC('freechains chain join /'..pub..' pubpvt '..pub..' '..pvt)
         CBS.onHostCreate(pub)
+        os.exit(0)
 
     elseif arg[2] == 'start' then
         EXE_BG('freechains host start '..CFG.path)
         CBS.onHostStart()
+        os.exit(0)
 
     elseif arg[2] == 'stop' then
         EXE_FC('freechains host stop')
         CBS.onHostStop()
+        os.exit(0)
+
+    elseif arg[2] == 'nick' then
+
+        if arg[3] == 'add' then
+
+            local pub = arg[4]
+            local ret = EXE_ZEN('Follow '..pub, false, '--entry --text="Nickname:"')
+            local nick = table.unpack(ret)
+
+            CFG.nicks[pub] = nick
+            CFG.nicks[nick] = pub
+            CFG_('save')
+
+            EXE_FC('freechains chain join /'..pub..' pubpvt '..pub)
+            CBS.onChainJoin('/'..pub)
+            os.exit(0)
+
+        end
 
     end
 
@@ -225,16 +220,53 @@ elseif arg[1] == 'chain' then
 
         EXE_FC('freechains chain join '..chain)
         CBS.onChainJoin(chain)
+        os.exit(0)
 
     elseif arg[2] == 'post' then
 
-        local chain = arg[3]
+        function UNNICK (nick)
+            if string.sub(nick,1,1) == '@' then
+                return assert(CFG.nicks[string.sub(nick,2)], 'unknown nick '..nick)
+            else
+                return nick
+            end
+        end
+
+        local chain = UNNICK(arg[3])
         local pay   = EXE('zenity --text-info --editable --title="Publish to '..chain..'"')
         local file  = os.tmpname()..'.pay'
         local f     = assert(io.open(file,'w')):write(pay..'\nEOF\n')
         f:close()
         EXE_FC('freechains chain post '..chain..' file utf8 '..file, '--utf8-eof=EOF --sign='..CFG.keys.pvt)
         CBS.onChainPost(chain)
+        os.exit(0)
+
+    elseif arg[2] == 'peer' then
+        if arg[3] == 'add' then
+
+            local chain = arg[4]
+            local ret   = EXE_ZEN('Add new peer to '..chain, false, '--entry --text="Host in format addr:port"')
+            local peer  = table.unpack(ret)
+
+            local t = CFG_chain(arg[4]).peers
+            t[peer] = true
+            CFG_('save')
+            os.exit(0)
+        end
+
+    elseif arg[2] == 'bcast' then
+
+        local chain = arg[3]
+        local f = io.popen('zenity --progress --percentage=0 --title="Broadcast '..chain..'"', 'w')
+        local ps = CFG_peers(chain)
+        for i,p in ipairs(ps) do
+            f:write('# '..p..'\n')
+            --EXE('sleep 1')
+            EXE_FC('freechains chain send '..chain..' '..p)
+            f:write(math.floor(100*(i/#ps))..'\n')
+        end
+        f:close()
+        os.exit(0)
 
     elseif arg[2] == 'atom' then
 
@@ -265,7 +297,7 @@ elseif arg[1] == 'chain' then
                 if visited[hash] then return end
                 visited[hash] = true
 
-                LOG:write('freechains chain get '..chain..' '..hash..'\n')
+                --LOG:write('freechains chain get '..chain..' '..hash..'\n')
                 local ret = EXE_FC('freechains chain get '..chain..' '..hash)
 
                 local block = json.decode(ret)
@@ -304,8 +336,8 @@ elseif arg[1] == 'chain' then
 
         function NICK (chain)
             local pub  = string.sub(chain,2)
-            local nick = CFG.friends[pub]
-            return (nick and '/'..nick) or chain
+            local nick = CFG.nicks[pub]
+            return (nick and '@'..nick) or chain
         end
 
         function MINE (chain)
@@ -356,12 +388,12 @@ elseif arg[1] == 'chain' then
                 if block.signature == json.util.null then
                     author = author .. 'Not signed'
                 else
-                    local nick = CFG.friends[pub]
+                    local nick = CFG.nicks[pub]
                     if nick then
-                        author = author .. nick
+                        author = author .. '@'..nick
                     else
                         --author = author .. '[@'..string.sub(pub,1,9)..'](freechains://nick-'..pub..')'
-                        author = author .. '<a href="freechains://nick-'..pub..'">@'..string.sub(pub,1,9)..'</a>'
+                        author = author .. '<a href="freechains://host-nick-add-'..pub..'">@'..string.sub(pub,1,9)..'</a>'
                     end
                 end
             end
@@ -407,6 +439,9 @@ end
         -- MENU
         do
             local ps = table.concat(CFG_peers(chain),',')
+            local add = [[
+<a href="freechains://chain-peer-add-]]..chain..[[">[add]</a>
+]]
 
             entry = TEMPLATES.entry
             entry = gsub(entry, '__TITLE__',   'Menu')
@@ -419,7 +454,7 @@ end
 <li> <a href="freechains://chain-join">[X]</a> join new chain
 ]])..[[
 <li> <a href="freechains://chain-post-]]..chain..[[">[X]</a> post to "]]..NICK(chain)..[["
-<li> <a href="freechains://chain-bcast-]]..chain..[[">[X]</a> broadcast to peers (]]..ps..[[)
+<li> <a href="freechains://chain-bcast-]]..chain..[[">[X]</a> broadcast to peers ]]..add..[[ (]]..ps..[[)
 </ul>
 ]]))
             entries[#entries+1] = entry
@@ -433,6 +468,12 @@ end
 
         f = io.stdout --assert(io.open(dir..'/'..key..'.xml', 'w'))
         f:write(feed)
+        os.exit(0)
+
     end
 
 end
+
+::ERROR::
+io.stderr:write('invalid command: '..table.concat({...},' ')..'\n')
+os.exit(1)
