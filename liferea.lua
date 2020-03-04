@@ -45,6 +45,105 @@ function FC.cmd.chain.join ()
     FC.exe._('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain-atom-'..chain..'"')
 end
 
+-------------------------------------------------------------------------------
+
+local TEMPLATES =
+{
+    feed = [[
+        <feed xmlns="http://www.w3.org/2005/Atom">
+            <title>__TITLE__</title>
+            <updated>__UPDATED__</updated>
+            <id>
+                freechains:__CHAIN__/
+            </id>
+        __ENTRIES__
+        </feed>
+    ]],
+    entry = [[
+        <entry>
+            <title>__TITLE__</title>
+            <id>
+                freechains:__CHAIN__/__HASH__/
+            </id>
+            <published>__DATE__</published>
+            <content type="html">__PAYLOAD__</content>
+        </entry>
+    ]],
+}
+
+-- TODO: hacky, "plain" gsub
+local function GSUB (a,b,c)
+    return string.gsub(a, b, function() return c end)
+end
+
+local function ESCAPE (html)
+    return (string.gsub(html, "[}{\">/<'&]", {
+        ["&"] = "&amp;",
+        ["<"] = "&lt;",
+        [">"] = "&gt;",
+        ['"'] = "&quot;",
+        ["'"] = "&#39;",
+        ["/"] = "&#47;"
+    }))
+end -- https://github.com/kernelsauce/turbo/blob/master/turbo/escape.lua
+
+function html (chain, blk)
+    local payload = blk.immut.payload
+    local title = ESCAPE(string.match(payload,'([^\n]*)'))
+    local pub = blk.sign and blk.sign.pub
+    local author = 'Signed by '
+    do
+        if blk.sign == json.util.null then
+            author = author .. 'Not signed'
+        else
+            local nick = FC.CFG.nicks[pub]
+            if nick then
+                author = author .. '@'..nick
+            else
+                --author = author .. '[@'..string.sub(pub,1,9)..'](freechains://nick-'..pub..')'
+                author = author .. '<a href="freechains://host-nick-add-'..pub..'">@'..string.sub(pub,1,9)..'</a>'
+            end
+        end
+    end
+
+    payload = payload .. [[
+
+
+-------------------------------------------------------------------------------
+
+]]..author..[[
+
+<a href=xxx> like </a>
+
+<a href=yyy> dislike </a>
+
+]]
+
+    -- markdown
+    if true then
+        do
+            local tmp = os.tmpname()
+            local md = assert(io.popen('pandoc -r markdown -w html > '..tmp, 'w'))
+            md:write(payload)
+            assert(md:close())
+            local html = assert(io.open(tmp))
+            payload = html:read('*a')
+            html:close()
+            os.remove(tmp)
+        end
+    end
+
+    payload = ESCAPE(payload)
+
+    local entry = TEMPLATES.entry
+    entry = GSUB(entry, '__TITLE__',   title)
+    entry = GSUB(entry, '__CHAIN__',   chain)
+    entry = GSUB(entry, '__HASH__',    blk.hash)
+    entry = GSUB(entry, '__DATE__',    os.date('!%Y-%m-%dT%H:%M:%SZ', blk.immut.timestamp))
+    entry = GSUB(entry, '__PAYLOAD__', payload)
+    return entry
+end
+
 function FC.cmd.chain.atom (chain)
 
     local function HASH2HEX (hash)
@@ -53,22 +152,6 @@ function FC.cmd.chain.atom (chain)
             ret = ret .. string.format('%02X', string.byte(string.sub(hash,i,i)))
         end
         return ret
-    end
-
-    local function ESCAPE (html)
-        return (string.gsub(html, "[}{\">/<'&]", {
-            ["&"] = "&amp;",
-            ["<"] = "&lt;",
-            [">"] = "&gt;",
-            ['"'] = "&quot;",
-            ["'"] = "&#39;",
-            ["/"] = "&#47;"
-        }))
-    end -- https://github.com/kernelsauce/turbo/blob/master/turbo/escape.lua
-
-    -- TODO: hacky, "plain" gsub
-    local function GSUB (a,b,c)
-        return string.gsub(a, b, function() return c end)
     end
 
     local function NICK (chain)
@@ -83,87 +166,10 @@ function FC.cmd.chain.atom (chain)
 
     -----------------------------------------------------------------------
 
-    local TEMPLATES =
-    {
-        feed = [[
-            <feed xmlns="http://www.w3.org/2005/Atom">
-                <title>__TITLE__</title>
-                <updated>__UPDATED__</updated>
-                <id>
-                    freechains:__CHAIN__/
-                </id>
-            __ENTRIES__
-            </feed>
-        ]],
-        entry = [[
-            <entry>
-                <title>__TITLE__</title>
-                <id>
-                    freechains:__CHAIN__/__HASH__/
-                </id>
-                <published>__DATE__</published>
-                <content type="html">__PAYLOAD__</content>
-            </entry>
-        ]],
-    }
-
     local entries = {}
 
-    for block in FC.cmd.chain.iter(chain) do
-        local payload = block.hashable.payload
-        local title = ESCAPE(string.match(payload,'([^\n]*)'))
-        local pub = block.signature and block.signature.pub
-        local author = 'Signed by '
-        do
-            if block.signature == json.util.null then
-                author = author .. 'Not signed'
-            else
-                local nick = FC.CFG.nicks[pub]
-                if nick then
-                    author = author .. '@'..nick
-                else
-                    --author = author .. '[@'..string.sub(pub,1,9)..'](freechains://nick-'..pub..')'
-                    author = author .. '<a href="freechains://host-nick-add-'..pub..'">@'..string.sub(pub,1,9)..'</a>'
-                end
-            end
-        end
-
-        payload = payload .. [[
-
-
--------------------------------------------------------------------------------
-
-]]..author..[[
-
-<a href=xxx> like </a>
-
-<a href=yyy> dislike </a>
-
-]]
-
-    -- markdown
-if true then
-        do
-            local tmp = os.tmpname()
-            local md = assert(io.popen('pandoc -r markdown -w html > '..tmp, 'w'))
-            md:write(payload)
-            assert(md:close())
-            local html = assert(io.open(tmp))
-            payload = html:read('*a')
-            html:close()
-            os.remove(tmp)
-        end
-end
-
-        payload = ESCAPE(payload)
-
-        local entry = TEMPLATES.entry
-        entry = GSUB(entry, '__TITLE__',   title)
-        entry = GSUB(entry, '__CHAIN__',   chain)
-        entry = GSUB(entry, '__HASH__',    block.hash)
-        entry = GSUB(entry, '__DATE__',    os.date('!%Y-%m-%dT%H:%M:%SZ', block.hashable.timestamp))
-        entry = GSUB(entry, '__PAYLOAD__', payload)
-        entries[#entries+1] = entry
+    for blk in FC.cmd.chain.iter(chain) do
+        entries[#entries+1] = html(chain, blk)
     end
 
     -- MENU
