@@ -88,6 +88,12 @@ local function ESCAPE (html)
 end -- https://github.com/kernelsauce/turbo/blob/master/turbo/escape.lua
 
 function html (chain, blk, state)
+    local pre = {
+        block = '[!]',
+        tine  = '[?]',
+        rem   = '[-]',
+    }
+
     local payload = blk.immut.payload
     local title = ESCAPE(string.match(payload,'([^\n]*)'))
     local pub = blk.sign and blk.sign.pub
@@ -111,12 +117,15 @@ function html (chain, blk, state)
 
 -------------------------------------------------------------------------------
 
+[<a href=freechains://chain-dislike-]]..blk.hash..[[> - </a>
+ like
+ <a href=freechains://chain-like-]]..blk.hash..[[> + </a>]
+
+[<a href=freechains://chain-remove-]] ..blk.hash..[[> - </a>
+ post
+ <a href=freechains://chain-accept-]] ..blk.hash..[[> + </a>]
+
 ]]..author..[[
-
-<a href=xxx> like </a>
-
-<a href=yyy> dislike </a>
-
 ]]
 
     -- markdown
@@ -136,7 +145,7 @@ function html (chain, blk, state)
     payload = ESCAPE(payload)
 
     local entry = TEMPLATES.entry
-    entry = GSUB(entry, '__TITLE__',   '[!] '..title)
+    entry = GSUB(entry, '__TITLE__',   pre[state]..' '..title)
     entry = GSUB(entry, '__CHAIN__',   chain)
     entry = GSUB(entry, '__HASH__',    blk.hash)
     entry = GSUB(entry, '__DATE__',    os.date('!%Y-%m-%dT%H:%M:%SZ', blk.immut.timestamp))
