@@ -5,6 +5,14 @@ local json     = require 'json'
 
 local share = os.getenv('HOME')..'/.local/share/freechains/'
 
+function split (sep, str)
+    local ret = {}
+    for it in string.gmatch(str, '([^'..sep..']+)') do
+        table.insert(ret, it)
+    end
+    return ret
+end
+
 local FC ; FC = {
 
 -------------------------------------------------------------------------------
@@ -195,49 +203,66 @@ local FC ; FC = {
                 )
             end,
 
-            iter = function (chain)
-                local visited = {}
-                local heads   = {}
+            iter = {
+                block = function (chain)
+                    local visited = {}
+                    local heads   = {}
 
-                local function one (hash,init)
-                    if visited[hash] then return end
-                    visited[hash] = true
+                    local function one (hash,init)
+                        if visited[hash] then return end
+                        visited[hash] = true
 
-                    --LOG:write('freechains chain get '..chain..' '..hash..'\n')
-                    local ret = FC.exe.fc('freechains chain get '..chain..' '..hash)
+                        --LOG:write('freechains chain get '..chain..' '..hash..'\n')
+                        local ret = FC.exe.fc('freechains chain get '..chain..' '..hash)
 
-                    local block = json.decode(ret)
-                    if not init then
-                        coroutine.yield(block)
-                    end
-
-                    for _, front in ipairs(block.fronts) do
-                        one(front)
-                    end
-
-                    if #block.fronts == 0 then
-                        heads[#heads+1] = hash
-                    end
-                end
-
-                return coroutine.wrap(
-                    function ()
-                        local cfg = FC.cfg.chain(chain)
-                        if cfg.heads then
-                            for _,hash in ipairs(cfg.heads) do
-                                one(hash,true)
-                            end
-                        else
-                            local hash = FC.exe.fc('freechains chain genesis '..chain)
-                            one(hash,true)
+                        local blk = json.decode(ret)
+                        if not init then
+                            coroutine.yield(blk)
                         end
 
-                        cfg.heads = heads
-                        FC.cfg.save()
+                        for _, front in ipairs(blk.fronts) do
+                            one(front)
+                        end
+
+                        if #blk.fronts == 0 then
+                            heads[#heads+1] = hash
+                        end
                     end
-                )
-            end,
-        }
+
+                    return coroutine.wrap(
+                        function ()
+                            local cfg = FC.cfg.chain(chain)
+                            if cfg.heads then
+                                for _,hash in ipairs(cfg.heads) do
+                                    one(hash,true)
+                                end
+                            else
+                                local hash = FC.exe.fc('freechains chain genesis '..chain)
+                                one(hash,true)
+                            end
+
+                            cfg.heads = heads
+                            FC.cfg.save()
+                        end
+                    )
+                end,
+
+                tine = function (chain)
+                    local ret = FC.exe.fc('freechains chain state list '..chain..' tine')
+                    ret = split(' ',ret)
+
+                    return coroutine.wrap(
+                        function ()
+                            for _,hash in ipairs(ret) do
+                                local j = FC.exe.fc('freechains chain state get '..chain..' tine '..hash)
+                                local blk = json.decode(j)
+                                coroutine.yield(blk)
+                            end
+                        end
+                    )
+                end,
+            },
+        },
     },
 }
 

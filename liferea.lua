@@ -87,7 +87,7 @@ local function ESCAPE (html)
     }))
 end -- https://github.com/kernelsauce/turbo/blob/master/turbo/escape.lua
 
-function html (chain, blk)
+function html (chain, blk, state)
     local payload = blk.immut.payload
     local title = ESCAPE(string.match(payload,'([^\n]*)'))
     local pub = blk.sign and blk.sign.pub
@@ -136,7 +136,7 @@ function html (chain, blk)
     payload = ESCAPE(payload)
 
     local entry = TEMPLATES.entry
-    entry = GSUB(entry, '__TITLE__',   title)
+    entry = GSUB(entry, '__TITLE__',   '[!] '..title)
     entry = GSUB(entry, '__CHAIN__',   chain)
     entry = GSUB(entry, '__HASH__',    blk.hash)
     entry = GSUB(entry, '__DATE__',    os.date('!%Y-%m-%dT%H:%M:%SZ', blk.immut.timestamp))
@@ -168,8 +168,12 @@ function FC.cmd.chain.atom (chain)
 
     local entries = {}
 
-    for blk in FC.cmd.chain.iter(chain) do
-        entries[#entries+1] = html(chain, blk)
+    for blk in FC.cmd.chain.iter.block(chain) do
+        entries[#entries+1] = html(chain, blk, 'block')
+    end
+
+    for blk in FC.cmd.chain.iter.tine(chain) do
+        entries[#entries+1] = html(chain, blk, 'tine')
     end
 
     -- MENU
@@ -207,14 +211,6 @@ function FC.cmd.chain.atom (chain)
 
 end
 
-local function split (str)
-    local ret = {}
-    for it in string.gmatch(str, "([^-]*)") do
-        table.insert(ret, it)
-    end
-    return ret
-end
-
-cmd = split(string.sub(cmd,14))
+cmd = split('-', string.sub(cmd,14))
 --print(table.unpack(cmd))
 FC.main(table.unpack(cmd))
