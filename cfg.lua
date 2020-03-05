@@ -183,6 +183,13 @@ local FC ; FC = {
                 FC.exe.fc('freechains chain post '..chain..' file utf8 '..file, '--utf8-eof=EOF --sign='..FC.CFG.keys.pvt)
             end,
 
+            accept = function (chain, hash)
+                FC.exe.fc('freechains chain accept '..chain..' '..hash)
+            end,
+            remove = function (chain, hash)
+                FC.exe.fc('freechains chain remove '..chain..' '..hash)
+            end,
+
             peer = {
                 add = function (chain, peer)
                     local t = FC.cfg.chain(chain).peers
@@ -225,15 +232,15 @@ local FC ; FC = {
                         end
 
                         if #blk.fronts == 0 then
-                            heads[#heads+1] = hash
+                            heads[hash] = true
                         end
                     end
 
                     return coroutine.wrap(
                         function ()
                             local cfg = FC.cfg.chain(chain)
-                            if cfg.heads then
-                                for _,hash in ipairs(cfg.heads) do
+                            if cfg.heads and next(cfg.heads) then
+                                for hash in pairs(cfg.heads) do
                                     one(hash,true)
                                 end
                             else
@@ -247,14 +254,14 @@ local FC ; FC = {
                     )
                 end,
 
-                tine = function (chain)
-                    local ret = FC.exe.fc('freechains chain state list '..chain..' tine')
+                state = function (chain, state)
+                    local ret = FC.exe.fc('freechains chain state list '..chain..' '..state)
                     ret = split(' ',ret)
 
                     return coroutine.wrap(
                         function ()
                             for _,hash in ipairs(ret) do
-                                local j = FC.exe.fc('freechains chain state get '..chain..' tine '..hash)
+                                local j = FC.exe.fc('freechains chain state get '..chain..' '..state..' '..hash)
                                 local blk = json.decode(j)
                                 coroutine.yield(blk)
                             end

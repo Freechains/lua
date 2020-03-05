@@ -97,7 +97,7 @@ function html (chain, blk, state)
     local payload = blk.immut.payload
     local title = ESCAPE(string.match(payload,'([^\n]*)'))
     local pub = blk.sign and blk.sign.pub
-    local author = 'Signed by '
+    local author = 'By '
     do
         if blk.sign == json.util.null then
             author = author .. 'Not signed'
@@ -117,13 +117,13 @@ function html (chain, blk, state)
 
 -------------------------------------------------------------------------------
 
-[<a href=freechains://chain-dislike-]]..blk.hash..[[> - </a>
+[<a href=freechains://chain-dislike-]]..chain..'-'..blk.hash..[[> - </a>
  like
- <a href=freechains://chain-like-]]..blk.hash..[[> + </a>]
+ <a href=freechains://chain-like-]]   ..chain..'-'..blk.hash..[[> + </a>]
 
-[<a href=freechains://chain-remove-]] ..blk.hash..[[> - </a>
+[<a href=freechains://chain-remove-]] ..chain..'-'..blk.hash..[[> - </a>
  post
- <a href=freechains://chain-accept-]] ..blk.hash..[[> + </a>]
+ <a href=freechains://chain-accept-]] ..chain..'-'..blk.hash..[[> + </a>]
 
 ]]..author..[[
 ]]
@@ -180,9 +180,11 @@ function FC.cmd.chain.atom (chain)
     for blk in FC.cmd.chain.iter.block(chain) do
         entries[#entries+1] = html(chain, blk, 'block')
     end
-
-    for blk in FC.cmd.chain.iter.tine(chain) do
+    for blk in FC.cmd.chain.iter.state(chain, 'tine') do
         entries[#entries+1] = html(chain, blk, 'tine')
+    end
+    for blk in FC.cmd.chain.iter.state(chain, 'rem') do
+        entries[#entries+1] = html(chain, blk, 'rem')
     end
 
     -- MENU
