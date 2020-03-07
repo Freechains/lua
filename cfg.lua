@@ -141,7 +141,7 @@ local FC ; FC = {
                 FC.CFG.nicks[nick] = pub
                 FC.cfg.save()
 
-                FC.exe.fc('freechains chain join /'..pub..' pubpvt '..pub..' '..pvt)
+                FC.exe.fc('freechains chain join /'..pub..' '..pub)
                 return pub
             end,
 
@@ -158,7 +158,7 @@ local FC ; FC = {
                     FC.CFG.nicks[pub] = nick
                     FC.CFG.nicks[nick] = pub
                     FC.cfg.save()
-                    FC.exe.fc('freechains chain join /'..pub..' pubpvt '..pub)
+                    FC.exe.fc('freechains chain join /'..pub..' '..pub)
                 end,
             },
         },
@@ -236,7 +236,7 @@ local FC ; FC = {
                         end
                     end
 
-                    return coroutine.wrap(
+                    return coroutine.wrap (
                         function ()
                             local cfg = FC.cfg.chain(chain)
                             if cfg.heads and next(cfg.heads) then
@@ -248,7 +248,13 @@ local FC ; FC = {
                                 one(hash,true)
                             end
 
-                            cfg.heads = heads
+                            local stable = split(' ', FC.exe.fc('freechains chain heads stable '..chain))
+                            local t = {}
+                            for _,hash in ipairs(stable) do
+                                t[hash] = true
+                            end
+
+                            cfg.heads = t
                             FC.cfg.save()
                         end
                     )
@@ -256,7 +262,7 @@ local FC ; FC = {
 
                 state = function (chain, state)
                     local ret = FC.exe.fc('freechains chain state list '..chain..' '..state)
-                    ret = split(' ',ret)
+                    ret = split(' ', ret)
 
                     return coroutine.wrap(
                         function ()
