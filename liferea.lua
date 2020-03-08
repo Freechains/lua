@@ -22,7 +22,7 @@ function FC.cmd.host.create (port)
     local pub = cmd_host_create(port)
     FC.exe.bg('liferea')
     FC.exe._('sleep 1')
-    FC.exe._('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain-atom-/'..pub..'"')
+    FC.exe._('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain,atom,/'..pub..'"')
 end
 
 function FC.cmd.host.start (port)
@@ -37,12 +37,12 @@ end
 
 function FC.cmd.host.nick.add (pub)
     cmd_host_nick_add(pub)
-    FC.exe._('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain-atom-/'..pub..'"')
+    FC.exe._('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain,atom,/'..pub..'"')
 end
 
 function FC.cmd.chain.join ()
     local chain = cmd_chain_join()
-    FC.exe._('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain-atom-'..chain..'"')
+    FC.exe._('dbus-send --session --dest=org.gnome.feed.Reader --type=method_call /org/gnome/feed/Reader org.gnome.feed.Reader.Subscribe "string:|freechains-liferea freechains://chain,atom,'..chain..'"')
 end
 
 -------------------------------------------------------------------------------
@@ -106,8 +106,8 @@ function html (chain, blk, state)
             if nick then
                 author = author .. '@'..nick
             else
-                --author = author .. '[@'..string.sub(pub,1,9)..'](freechains://nick-'..pub..')'
-                author = author .. '<a href="freechains://host-nick-add-'..pub..'">@'..string.sub(pub,1,9)..'</a>'
+                --author = author .. '[@'..string.sub(pub,1,9)..'](freechains://nick,'..pub..')'
+                author = author .. '<a href="freechains://host,nick,add,'..pub..'">@'..string.sub(pub,1,9)..'</a>'
             end
         end
     end
@@ -117,13 +117,13 @@ function html (chain, blk, state)
 
 -------------------------------------------------------------------------------
 
-[<a href=freechains://chain-dislike-]]..chain..'-'..blk.hash..[[> - </a>
+[<a href=freechains://chain,like,-,1000]]..chain..','..blk.hash..[[> - </a>
  like
- <a href=freechains://chain-like-]]   ..chain..'-'..blk.hash..[[> + </a>]
+ <a href=freechains://chain,like,+,1000]]   ..chain..','..blk.hash..[[> + </a>]
 
-[<a href=freechains://chain-remove-]] ..chain..'-'..blk.hash..[[> - </a>
+[<a href=freechains://chain,remove,]] ..chain..','..blk.hash..[[> - </a>
  post
- <a href=freechains://chain-accept-]] ..chain..'-'..blk.hash..[[> + </a>]
+ <a href=freechains://chain,accept,]] ..chain..','..blk.hash..[[> + </a>]
 
 ]]..author..[[
 ]]
@@ -191,7 +191,7 @@ function FC.cmd.chain.atom (chain)
     do
         local ps = table.concat(FC.cfg.peers(chain),',')
         local add = [[
-<a href="freechains://chain-peer-add-]]..chain..[[">[add]</a>
+<a href="freechains://chain,peer,add,]]..chain..[[">[add]</a>
 ]]
 
         local entry = TEMPLATES.entry
@@ -202,10 +202,10 @@ function FC.cmd.chain.atom (chain)
         entry = GSUB(entry, '__PAYLOAD__', ESCAPE([[
 <ul>
 ]]..(not MINE(chain) and '' or [[
-<li> <a href="freechains://chain-join">[X]</a> join new chain
+<li> <a href="freechains://chain,join">[X]</a> join new chain
 ]])..[[
-<li> <a href="freechains://chain-post-]]..chain..[[">[X]</a> post to "]]..NICK(chain)..[["
-<li> <a href="freechains://chain-bcast-]]..chain..[[">[X]</a> broadcast to peers ]]..add..[[ (]]..ps..[[)
+<li> <a href="freechains://chain,post,]]..chain..[[">[X]</a> post to "]]..NICK(chain)..[["
+<li> <a href="freechains://chain,bcast,]]..chain..[[">[X]</a> broadcast to peers ]]..add..[[ (]]..ps..[[)
 </ul>
 ]]))
         entries[#entries+1] = entry
@@ -222,6 +222,6 @@ function FC.cmd.chain.atom (chain)
 
 end
 
-cmd = split('-', string.sub(cmd,14))
+cmd = split(',', string.sub(cmd,14))
 --print(table.unpack(cmd))
 FC.main(table.unpack(cmd))
