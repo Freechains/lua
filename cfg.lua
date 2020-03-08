@@ -40,6 +40,16 @@ local FC ; FC = {
         error('incomplete command: '..str)
     end,
 
+    short = function (pre,hash)
+        return pre..string.sub(hash,1,9)
+    end,
+
+    nick = function (chain)
+        local pub  = string.sub(chain,2)
+        local nick = FC.CFG.nicks[pub]
+        return (nick and '@'..nick) or chain
+    end,
+
 -------------------------------------------------------------------------------
 
     CFG = {
@@ -181,6 +191,12 @@ local FC ; FC = {
                 end
                 local chain = unnick(chain_nick)
                 FC.exe.fc('freechains chain post '..chain..' file utf8 '..file, '--utf8-eof=EOF --sign='..FC.CFG.keys.pvt)
+            end,
+
+            like = function (chain, sig, n, hash, why)
+                FC.exe.fc('freechains chain like post '..chain..' '..sig..' '..n..' '..hash,
+                            '--sign='..FC.CFG.keys.pvt,
+                            '--why='..why)
             end,
 
             accept = function (chain, hash)
