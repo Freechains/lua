@@ -63,7 +63,7 @@ FC.cmd.chain.like = function (chain, sig, n, hash)
 end
 
 FC.cmd.chain.post = function (chain)
-    local pay  = FC.exe._('zenity --text-info --editable --title="Publish to '..FC.nick(chain)..'"')
+    local pay  = FC.exe._('zenity --text-info --editable --title="Publish to '..FC.chain2nick(chain)..'"')
     local file = os.tmpname()..'.pay'
     local f    = assert(io.open(file,'w')):write(pay..'\nEOF\n')
     f:close()
@@ -71,13 +71,13 @@ FC.cmd.chain.post = function (chain)
 end
 
 FC.cmd.chain.peer.add = function (chain)
-    local ret   = FC.exe.zen('Add new peer to '..FC.nick(chain), false, '--entry --text="Host in format addr:port"')
+    local ret   = FC.exe.zen('Add new peer to '..FC.chain2nick(chain), false, '--entry --text="Host in format addr:port"')
     local peer  = table.unpack(ret)
     return cmd_chain_peer_add(chain,peer)
 end
 
 FC.cmd.chain.bcast = function (chain)
-    local f  = io.popen('zenity --progress --percentage=0 --title="Broadcast '..FC.nick(chain)..'"', 'w')
+    local f  = io.popen('zenity --progress --percentage=0 --title="Broadcast '..FC.chain2nick(chain)..'"', 'w')
     local co = cmd_chain_bcast(chain)
     for i,n,p in co do
         f:write('# '..p..'\n')

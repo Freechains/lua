@@ -63,9 +63,10 @@ local TEMPLATES =
         <entry>
             <title>__TITLE__</title>
             <id>
-                freechains:__CHAIN__/__HASH__/
+                freechains:__CHAIN__/__HASH__/__UPDATED__
             </id>
             <published>__DATE__</published>
+            <updated>__UPDATED__</updated>
             <content type="html">__PAYLOAD__</content>
         </entry>
     ]],
@@ -88,12 +89,6 @@ local function ESCAPE (html)
 end -- https://github.com/kernelsauce/turbo/blob/master/turbo/escape.lua
 
 function html (chain, blk, state)
-    local pre = {
-        block = '[!]',
-        tine  = '[?]',
-        rem   = '[-]',
-    }
-
     local payload = blk.immut.payload
 
     local like = blk.immut.like
@@ -104,16 +99,15 @@ function html (chain, blk, state)
 
     local title = ESCAPE(string.match(payload,'([^\n]*)'))
     local pub = blk.sign and blk.sign.pub
-    local author = 'By '
-    do
+    local author do
         if blk.sign == json.util.null then
-            author = author .. 'Not signed'
+            author = 'anonymous'
         else
             local short = FC.short('@',pub)
             if FC.CFG.nicks[pub] then
-                author = author..short
+                author = short
             else
-                author = author .. '<a href="freechains://host*nick*add*'..pub..'">'..short..'</a>'
+                author = '<a href="freechains://host*nick*add*'..pub..'">'..short..'</a>'
             end
         end
     end
@@ -123,6 +117,9 @@ function html (chain, blk, state)
 
 -------------------------------------------------------------------------------
 
+Post ]]..FC.short('%',blk.hash)..[[
+
+
 [<a href=freechains://chain*like*]]  ..chain..'*-*1000*'..blk.hash..[[> - </a>
  like
  <a href=freechains://chain*like*]]  ..chain..'*+*1000*'..blk.hash..[[> + </a>]
@@ -131,7 +128,7 @@ function html (chain, blk, state)
  post
  <a href=freechains://chain*accept*]]..chain..'*'..blk.hash..[[> + </a>]
 
-]]..author..[[
+By ]]..author..[[
 ]]
 
     -- markdown
@@ -150,11 +147,20 @@ function html (chain, blk, state)
 
     payload = ESCAPE(payload)
 
+    local pre = {
+        block = '[!]',
+        tine  = '[?]',
+        rem   = '[-]',
+    }
+
+    local rep = '['..FC.exe.fc('freechains chain like get '..chain..' '..blk.hash)..']'
+
     local entry = TEMPLATES.entry
-    entry = GSUB(entry, '__TITLE__',   pre[state]..' '..title)
+    entry = GSUB(entry, '__TITLE__',   pre[state]..' '..rep..' '..title)
     entry = GSUB(entry, '__CHAIN__',   chain)
     entry = GSUB(entry, '__HASH__',    blk.hash)
     entry = GSUB(entry, '__DATE__',    os.date('!%Y-%m-%dT%H:%M:%SZ', blk.immut.timestamp))
+    entry = GSUB(entry, '__UPDATED__', os.date('!%Y-%m-%dT%H:%M:%SZ', os.time()))
     entry = GSUB(entry, '__PAYLOAD__', payload)
     return entry
 end
@@ -176,15 +182,35 @@ function FC.cmd.chain.atom (chain)
     -----------------------------------------------------------------------
 
     local entries = {}
+    local likes   = {}
+    local function l (blk)
+        local like = blk.immut.like
+        if like ~= json.util.null then
+            if like.type == 'POST' then
+                likes[#likes+1] = like.ref
+            end
+        end
+    end
 
     for blk in FC.cmd.chain.iter.block(chain) do
         entries[#entries+1] = html(chain, blk, 'block')
+        l(blk)
     end
     for blk in FC.cmd.chain.iter.state(chain, 'tine') do
         entries[#entries+1] = html(chain, blk, 'tine')
+        l(blk)
     end
     for blk in FC.cmd.chain.iter.state(chain, 'rem') do
         entries[#entries+1] = html(chain, blk, 'rem')
+        l(blk)
+    end
+
+    for _,hash in ipairs(likes) do
+        local ret = FC.exe.fc('freechains chain get '..chain..' '..hash)
+        if ret ~= '' then
+            local blk = json.decode(ret)
+            entries[#entries+1] = html(chain, blk, 'block')
+        end
     end
 
     -- MENU
