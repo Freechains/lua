@@ -99,7 +99,7 @@ function html (chain, blk, state)
     local like = blk.immut.like
     if like ~= json.util.null then
         local pre = (like.type == 'PUBKEY') and '@' or '%'
-        payload = like.n..' '..FC.short(pre,like.ref)
+        payload = like.n..' '..FC.short(pre,like.ref)..'\n\n'..payload
     end
 
     local title = ESCAPE(string.match(payload,'([^\n]*)'))
@@ -109,12 +109,11 @@ function html (chain, blk, state)
         if blk.sign == json.util.null then
             author = author .. 'Not signed'
         else
-            local nick = FC.CFG.nicks[pub]
-            if nick then
-                author = author .. '@'..nick
+            local short = FC.short('@',pub)
+            if FC.CFG.nicks[pub] then
+                author = author..short
             else
-                --author = author .. '[@'..string.sub(pub,1,9)..'](freechains://nick*'..pub..')'
-                author = author .. '<a href="freechains://host*nick*add*'..pub..'">'..FC.short('@',pub)..'</a>'
+                author = author .. '<a href="freechains://host*nick*add*'..pub..'">'..short..'</a>'
             end
         end
     end
@@ -205,7 +204,7 @@ function FC.cmd.chain.atom (chain)
 ]]..(not MINE(chain) and '' or [[
 <li> <a href="freechains://chain*join">[X]</a> join new chain
 ]])..[[
-<li> <a href="freechains://chain*post*]]..chain..[[">[X]</a> post to "]]..FC.nick(chain)..[["
+<li> <a href="freechains://chain*post*]]..chain..[[">[X]</a> post to "]]..FC.chain2nick(chain)..[["
 <li> <a href="freechains://chain*bcast*]]..chain..[[">[X]</a> broadcast to peers ]]..add..[[ (]]..ps..[[)
 </ul>
 ]]))
@@ -213,7 +212,7 @@ function FC.cmd.chain.atom (chain)
     end
 
     local feed = TEMPLATES.feed
-    feed = GSUB(feed, '__TITLE__',   FC.nick(chain))
+    feed = GSUB(feed, '__TITLE__',   FC.chain2nick(chain))
     feed = GSUB(feed, '__UPDATED__', os.date('!%Y-%m-%dT%H:%M:%SZ', os.time()))
     feed = GSUB(feed, '__CHAIN__',   chain)
     feed = GSUB(feed, '__ENTRIES__', table.concat(entries,'\n'))

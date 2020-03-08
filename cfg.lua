@@ -41,10 +41,14 @@ local FC ; FC = {
     end,
 
     short = function (pre,hash)
+        local nick = FC.CFG.nicks[hash]
+        if pre=='@' and nick then
+            return '@'..nick
+        end
         return pre..string.sub(hash,1,9)
     end,
 
-    nick = function (chain)
+    chain2nick = function (chain)
         local pub  = string.sub(chain,2)
         local nick = FC.CFG.nicks[pub]
         return (nick and '@'..nick) or chain
@@ -195,8 +199,8 @@ local FC ; FC = {
 
             like = function (chain, sig, n, hash, why)
                 FC.exe.fc('freechains chain like post '..chain..' '..sig..' '..n..' '..hash,
-                            '--sign='..FC.CFG.keys.pvt,
-                            '--why='..why)
+                            ' --sign='..FC.CFG.keys.pvt..
+                            ' --why="'..why..'"')
             end,
 
             accept = function (chain, hash)
