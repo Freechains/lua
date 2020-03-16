@@ -21,7 +21,6 @@ local FC ; FC = {
         cfg   = os.getenv('HOME')..'/.config/freechains.json',
         share = share,
         data  = share..'/data/',
-        cbs   = share..'/callbacks.lua',
     },
 
     main = function (...)
@@ -300,7 +299,6 @@ local FC ; FC = {
 }
 
 os.execute('mkdir -p '..FC.path.share)
-pcall(dofile, FC.path.cbs)
 FC.cfg.load()
 
 if not _REQ then
