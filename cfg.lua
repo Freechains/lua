@@ -1,6 +1,6 @@
 #!/usr/bin/env lua5.3
 
-local optparse = require 'optparse'
+local optparse = require 'freechains.optparse'
 local json     = require 'json'
 
 local share = os.getenv('HOME')..'/.local/share/freechains/'
@@ -147,7 +147,7 @@ local FC ; FC = {
                 FC.exe._('sleep 0.5')
 
                 local ret = FC.exe.fc('freechains crypto create pubpvt '..pass)
-                local pub,pvt = string.match(ret, '^([^\n]*)\n(.*)$')
+                local pub,pvt = string.match(ret, '^([^ ]*) (.*)$')
 
                 FC.CFG.keys = { pub=pub, pvt=pvt }
                 FC.CFG.nicks[pub] = nick
@@ -267,7 +267,7 @@ local FC ; FC = {
                                 one(hash,true)
                             end
 
-                            local stable = split(' ', FC.exe.fc('freechains chain heads stable '..chain))
+                            local stable = split(' ', FC.exe.fc('freechains chain heads rejected '..chain))
                             local t = {}
                             for _,hash in ipairs(stable) do
                                 t[hash] = true
