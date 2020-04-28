@@ -43,7 +43,7 @@ function one (hash)
     local t   = math.floor(blk.immut.time)
     local lik = (type(h.like)=='table' and h.like.n) or '---'
 
-    NODES[#NODES+1] = '_'..hash..'[label="'..sub(hash)..'\n'..h.payload..'\n'..ref..'\n'..lik..'\n'..t..'"];'
+    NODES[#NODES+1] = '_'..hash..'[label="'..sub(hash)..'\n'..blk.pay..'\n'..ref..'\n'..lik..'\n'..t..'"];'
 
     for _,back in ipairs(blk.fronts) do
         CONNS[#CONNS+1] = '_'..hash..' -> _'..back
